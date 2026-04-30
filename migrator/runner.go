@@ -203,7 +203,8 @@ func (r *runner) openMigrate() (*migrate.Migrate, error) {
 }
 
 func (r *runner) handleMigrateErr(err error) error {
-	if errors.Is(err, migrate.ErrDirty) {
+	var derr migrate.ErrDirty
+	if errors.As(err, &derr) {
 		r.logger.Error("schema is dirty", "err", err, "hint", "run 'migrator force <prev_version>' after fixing")
 		return ErrDirty
 	}
@@ -213,11 +214,8 @@ func (r *runner) handleMigrateErr(err error) error {
 // openPGXDB opens *sql.DB via pgx stdlib with search_path set to <schema>,public.
 // Schema is created if missing (CREATE SCHEMA IF NOT EXISTS) since migrations
 // can't bootstrap their own namespace.
-func openPGXDB(url, schema string) (db dbHandle, err error) {
-	conn, err := stdlib.OpenDB(*mustParseConfig(url))
-	if err != nil {
-		return nil, err
-	}
+func openPGXDB(url, schema string) (dbHandle, error) {
+	conn := stdlib.OpenDB(*mustParseConfig(url))
 	if _, err := conn.Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", schema)); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("create schema: %w", err)
