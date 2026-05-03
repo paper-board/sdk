@@ -10,6 +10,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	pgxv5 "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/spf13/cobra"
 )
@@ -214,11 +215,20 @@ func (r *runner) handleMigrateErr(err error) error {
 // openPGXDB opens *sql.DB via pgx stdlib with search_path set to <schema>,public.
 // Schema is created if missing (CREATE SCHEMA IF NOT EXISTS) since migrations
 // can't bootstrap their own namespace.
+//
+// CREATE SCHEMA IF NOT EXISTS is not atomic against the system catalog; two
+// concurrent callers can both observe "missing" and race to insert, producing
+// SQLSTATE 42P06 (duplicate_schema) or 23505 (pg_namespace_nspname_index).
+// Both are benign here — IF NOT EXISTS already conveys intent — so we treat
+// them as success.
 func openPGXDB(url, schema string) (dbHandle, error) {
 	conn := stdlib.OpenDB(*mustParseConfig(url))
 	if _, err := conn.Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", schema)); err != nil {
-		conn.Close()
-		return nil, fmt.Errorf("create schema: %w", err)
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) || (pgErr.Code != "42P06" && pgErr.Code != "23505") {
+			conn.Close()
+			return nil, fmt.Errorf("create schema: %w", err)
+		}
 	}
 	if _, err := conn.Exec(fmt.Sprintf("SET search_path TO %s, public", schema)); err != nil {
 		conn.Close()
