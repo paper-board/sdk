@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/paper-board/sdk/migrator"
-	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
@@ -26,7 +25,7 @@ func setupPostgres(t *testing.T) (string, func()) {
 		tcpostgres.WithDatabase("test"),
 		tcpostgres.WithUsername("test"),
 		tcpostgres.WithPassword("test"),
-		testcontainers.WithWaitStrategy(tcpostgres.NewPostgresReadyStrategy(time.Minute)),
+		tcpostgres.BasicWaitStrategies(),
 	)
 	if err != nil {
 		t.Fatalf("start postgres: %v", err)
