@@ -1,0 +1,33 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  test:
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: paper-board/.github/.github/workflows/go-ci.yml@main
+    with:
+      service-name: sdk
+      enable-e2e: false
+      enable-helm-lint: false
+      enable-sqlc-verify: false
+      enable-cover-check: false
+    secrets: inherit
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: googleapis/release-please-action@v4
+        with:
+          release-type: go
+          token: ${{ secrets.GITHUB_TOKEN }}
