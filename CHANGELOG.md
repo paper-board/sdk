@@ -5,7 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased] — Phase 2 Identity Integration
+
+### Added
+
+- `auth/` package: per-route middleware `Require(modes...)` / `RequireRole(roles...)` decorators
+  backed by identity gRPC AuthService. Format-detects `pbk_(live|test)_*` (APIKey path) vs JWT
+  (RS256). Includes `Keystore` with 5min TTL cache + `Refresh(kid)`. Mock client under
+  `auth/mock/` for downstream template-validate smoke. Coverage ≥85% on `auth/`.
+  - `auth.New(opts...)` returns `*Config`; options: `WithClient`, `WithKeystore`, `WithKeystoreTTL`.
+  - `cfg.Require(JWT, APIKey)` — middleware factory, OR-set of accepted modes.
+  - `cfg.RequireRole(Owner)` — middleware factory, OR-set of required roles; run after `Require`.
+  - `auth.FromContext(ctx)` / `auth.WithContext(ctx, ac)` — typed AuthCtx accessor.
+  - `auth/mock.AuthClient` — function-field stub for `identityv1.AuthServiceClient`.
 
 ## [v0.2.0] — 2026-05-03
 

@@ -1,0 +1,23 @@
+# Service-repo wrapper. Substance lives in paper-board/.github reusable workflow.
+# Spec: agent-manager/docs/standards/build-release.md §2.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: paper-board/.github/.github/workflows/go-ci.yml@main
+    with:
+      service-name: sdk
+      enable-e2e: false
+      enable-helm-lint: false
+      enable-sqlc-verify: false
+      enable-cover-check: false
+    secrets: inherit
