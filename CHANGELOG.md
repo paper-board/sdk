@@ -11,15 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Features
 
 * **auth:** sdk/auth package (Phase 2) ([#1](https://github.com/paper-board/sdk/issues/1)) ([ca05f5a](https://github.com/paper-board/sdk/commit/ca05f5aa74f5ae83295b8637f4f65337d269ba25))
-
-## [Unreleased] — Phase 2 Identity Integration
-
-### Added
-
-- `auth/` package: per-route middleware `Require(modes...)` / `RequireRole(roles...)` decorators
-  backed by identity gRPC AuthService. Format-detects `pbk_(live|test)_*` (APIKey path) vs JWT
-  (RS256). Includes `Keystore` with 5min TTL cache + `Refresh(kid)`. Mock client under
-  `auth/mock/` for downstream template-validate smoke. Coverage ≥85% on `auth/`.
+  - `auth/` package: per-route middleware `Require(modes...)` / `RequireRole(roles...)` decorators
+    backed by identity gRPC AuthService. Format-detects `pbk_(live|test)_*` (APIKey path) vs JWT
+    (RS256). Includes `Keystore` with 5 min TTL cache + `Refresh(kid)`. Mock client under
+    `auth/mock/` for downstream template-validate smoke. Coverage ≥85% on `auth/`.
   - `auth.New(opts...)` returns `*Config`; options: `WithClient`, `WithKeystore`, `WithKeystoreTTL`.
   - `cfg.Require(JWT, APIKey)` — middleware factory, OR-set of accepted modes.
   - `cfg.RequireRole(Owner)` — middleware factory, OR-set of required roles; run after `Require`.
