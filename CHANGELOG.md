@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0](https://github.com/paper-board/sdk/compare/v0.2.0...v0.3.0) (2026-05-13)
+
+
+### Features
+
+* **auth:** sdk/auth package (Phase 2) ([#1](https://github.com/paper-board/sdk/issues/1)) ([ca05f5a](https://github.com/paper-board/sdk/commit/ca05f5aa74f5ae83295b8637f4f65337d269ba25))
+
 ## [Unreleased] — Phase 2 Identity Integration
 
 ### Added
