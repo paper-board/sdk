@@ -1,4 +1,6 @@
-.PHONY: test integration-test lint cover
+.PHONY: all test integration-test lint cover clean
+
+all: test
 
 # Unit tests — no build tag, no external deps.
 test:
@@ -17,3 +19,6 @@ lint:
 cover:
 	go test -race -count=1 -coverprofile=cover.out ./...
 	go tool cover -func=cover.out | tail -1
+
+clean:
+	rm -f cover.out

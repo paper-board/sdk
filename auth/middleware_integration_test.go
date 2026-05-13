@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	identityv1 "github.com/paper-board/proto/gen/go/identity/v1"
 )
 
@@ -62,7 +63,7 @@ func TestIntegration_expired_apikey_401(t *testing.T) {
 		t.Fatalf("insert expired key: %v", err)
 	}
 
-	var keyID interface{}
+	var keyID pgtype.UUID
 	if err := harness.pool.QueryRow(ctx,
 		`SELECT id FROM identity.api_keys WHERE key_prefix = $1`, prefix,
 	).Scan(&keyID); err != nil {
@@ -93,7 +94,7 @@ func TestIntegration_deleted_apikey_401(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate key: %v", err)
 	}
-	var keyID interface{}
+	var keyID pgtype.UUID
 	if err := harness.pool.QueryRow(ctx,
 		`INSERT INTO identity.api_keys (user_id, org_id, name, key_prefix, key_hash, env)
 		 VALUES ($1, $2, 'to-delete', $3, $4, 'live') RETURNING id`,
@@ -102,7 +103,6 @@ func TestIntegration_deleted_apikey_401(t *testing.T) {
 		t.Fatalf("insert key: %v", err)
 	}
 
-	// Soft-delete it.
 	if _, err := harness.pool.Exec(ctx,
 		`UPDATE identity.api_keys SET deleted_at = now() WHERE id = $1`, keyID,
 	); err != nil {

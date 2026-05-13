@@ -228,7 +228,7 @@ func bootHarness() error {
 	}
 
 	// In-process gRPC identity server over bufconn.
-	conn, srv, err := startIdentityServer(pool, kek)
+	conn, grpcCleanup, err := startIdentityServer(pool, kek)
 	if err != nil {
 		harness.cleanup = func() {
 			pool.Close()
@@ -243,10 +243,10 @@ func bootHarness() error {
 		if harness.grpcConn != nil {
 			_ = harness.grpcConn.Close()
 		}
+		grpcCleanup()
 		if harness.pool != nil {
 			harness.pool.Close()
 		}
-		srv.GracefulStop()
 		_ = pg.Terminate(context.Background())
 	}
 	return nil
@@ -338,8 +338,9 @@ func seedAuthKey(ctx context.Context, pool *pgxpool.Pool, kek []byte) error {
 }
 
 // startIdentityServer creates a bufconn gRPC server with a real-DB-backed
-// AuthService implementation and returns a connected *grpc.ClientConn and the server handle.
-func startIdentityServer(pool *pgxpool.Pool, kek []byte) (*grpc.ClientConn, *grpc.Server, error) {
+// AuthService implementation. The returned cleanup func closes the listener
+// then stops the server — caller must call it on shutdown to avoid fd leak.
+func startIdentityServer(pool *pgxpool.Pool, kek []byte) (*grpc.ClientConn, func(), error) {
 	lis := bufconn.Listen(bufSize)
 	srv := grpc.NewServer()
 	identityv1.RegisterAuthServiceServer(srv, &dbAuthServer{pool: pool, kek: kek, env: "live"})
@@ -352,10 +353,15 @@ func startIdentityServer(pool *pgxpool.Pool, kek []byte) (*grpc.ClientConn, *grp
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
+		_ = lis.Close()
 		srv.GracefulStop()
 		return nil, nil, err
 	}
-	return conn, srv, nil
+	cleanup := func() {
+		_ = lis.Close()
+		srv.GracefulStop()
+	}
+	return conn, cleanup, nil
 }
 
 // dbAuthServer implements identityv1.AuthServiceServer backed by real Postgres.
