@@ -2,7 +2,7 @@ name: release
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]
 
 jobs:
   test:
@@ -23,6 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
+      issues: write
     steps:
       - uses: actions/checkout@v5
         with:
