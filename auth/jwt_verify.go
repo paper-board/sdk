@@ -112,9 +112,10 @@ func parseAndVerify(ctx context.Context, store *Keystore, parser *gojwt.Parser, 
 	}, nil, nil
 }
 
-// parseRSAPublicKey accepts either PEM-encoded or raw DER bytes and returns an RSA public key.
-// Identity stores keys as PEM in GetPublicKeyResponse.PublicKey; DER fallback supports callers
-// that store pre-decoded bytes.
+// parseRSAPublicKey accepts either raw PKIX DER bytes or PEM-encoded bytes and returns an RSA public key.
+// Identity returns raw PKIX DER bytes per proto contract. We attempt PEM-decode
+// first as a defensive fallback for wire formats that pre-encode the DER as PEM
+// (none currently do in paper-board's deployment, but cheap insurance).
 func parseRSAPublicKey(keyBytes []byte) (*rsa.PublicKey, error) {
 	der := keyBytes
 	if block, _ := pem.Decode(keyBytes); block != nil {

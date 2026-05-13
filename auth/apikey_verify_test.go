@@ -137,3 +137,55 @@ func TestVerifyAPIKey_env_test(t *testing.T) {
 		t.Errorf("Role = %v; want Member", ac.Role)
 	}
 }
+
+func TestProtoEnvToEnv_unknown_returns_false(t *testing.T) {
+	_, ok := protoEnvToEnv(identityv1.Env(99))
+	if ok {
+		t.Error("expected ok=false for unknown env; got true")
+	}
+}
+
+func TestProtoRoleToRole_unknown_returns_false(t *testing.T) {
+	_, ok := protoRoleToRole(identityv1.Role(99))
+	if ok {
+		t.Error("expected ok=false for unknown role; got true")
+	}
+}
+
+func TestVerifyAPIKey_unknown_env_returns_unauthenticated(t *testing.T) {
+	mc := &mock.AuthClient{
+		VerifyAPIKeyFn: func(_ context.Context, _ *identityv1.VerifyAPIKeyRequest, _ ...grpc.CallOption) (*identityv1.VerifyAPIKeyResponse, error) {
+			return &identityv1.VerifyAPIKeyResponse{
+				Ctx: &identityv1.AuthContext{
+					UserId: testUserID.String(),
+					OrgId:  testOrgID.String(),
+					Env:    identityv1.Env(99),
+					Role:   identityv1.Role_ROLE_MEMBER,
+				},
+			}, nil
+		},
+	}
+	_, err := verifyAPIKey(context.Background(), mc, "pbk_live_TESTKEY")
+	if !errors.Is(err, ErrUnauthenticated) {
+		t.Errorf("got %v; want ErrUnauthenticated for unknown env", err)
+	}
+}
+
+func TestVerifyAPIKey_unknown_role_returns_unauthenticated(t *testing.T) {
+	mc := &mock.AuthClient{
+		VerifyAPIKeyFn: func(_ context.Context, _ *identityv1.VerifyAPIKeyRequest, _ ...grpc.CallOption) (*identityv1.VerifyAPIKeyResponse, error) {
+			return &identityv1.VerifyAPIKeyResponse{
+				Ctx: &identityv1.AuthContext{
+					UserId: testUserID.String(),
+					OrgId:  testOrgID.String(),
+					Env:    identityv1.Env_ENV_LIVE,
+					Role:   identityv1.Role(99),
+				},
+			}, nil
+		},
+	}
+	_, err := verifyAPIKey(context.Background(), mc, "pbk_live_TESTKEY")
+	if !errors.Is(err, ErrUnauthenticated) {
+		t.Errorf("got %v; want ErrUnauthenticated for unknown role", err)
+	}
+}

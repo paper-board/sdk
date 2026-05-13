@@ -55,35 +55,44 @@ func verifyAPIKey(ctx context.Context, client identityv1.AuthServiceClient, raw 
 		}
 	}
 
+	env, ok := protoEnvToEnv(ac.GetEnv())
+	if !ok {
+		return AuthCtx{}, fmt.Errorf("%w: invalid env in identity response", ErrUnauthenticated)
+	}
+	role, ok := protoRoleToRole(ac.GetRole())
+	if !ok {
+		return AuthCtx{}, fmt.Errorf("%w: invalid role in identity response", ErrUnauthenticated)
+	}
+
 	return AuthCtx{
 		UserID:   userID,
 		OrgID:    orgID,
 		Mode:     APIKey,
 		APIKeyID: apiKeyID,
 		Method:   "api_key",
-		Env:      protoEnvToEnv(ac.GetEnv()),
-		Role:     protoRoleToRole(ac.GetRole()),
+		Env:      env,
+		Role:     role,
 	}, nil
 }
 
-func protoEnvToEnv(e identityv1.Env) Env {
+func protoEnvToEnv(e identityv1.Env) (Env, bool) {
 	switch e {
 	case identityv1.Env_ENV_LIVE:
-		return EnvLive
+		return EnvLive, true
 	case identityv1.Env_ENV_TEST:
-		return EnvTest
+		return EnvTest, true
 	default:
-		return EnvLive
+		return "", false
 	}
 }
 
-func protoRoleToRole(r identityv1.Role) Role {
+func protoRoleToRole(r identityv1.Role) (Role, bool) {
 	switch r {
 	case identityv1.Role_ROLE_OWNER:
-		return Owner
+		return Owner, true
 	case identityv1.Role_ROLE_MEMBER:
-		return Member
+		return Member, true
 	default:
-		return Member
+		return 0, false
 	}
 }

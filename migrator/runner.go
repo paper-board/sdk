@@ -54,7 +54,7 @@ func (r *runner) cmdUp(dryRun *bool) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer m.Close()
+			defer func() { _, _ = m.Close() }()
 
 			if *dryRun {
 				return r.runDryRun(m)
@@ -86,7 +86,7 @@ func (r *runner) cmdDown() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer m.Close()
+			defer func() { _, _ = m.Close() }()
 
 			r.logger.Warn("starting migrate down", "steps", n)
 			if err := m.Steps(-n); err != nil {
@@ -113,7 +113,7 @@ func (r *runner) cmdForce() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer m.Close()
+			defer func() { _, _ = m.Close() }()
 
 			r.logger.Warn("forcing version (dirty recovery)", "version", v)
 			return m.Force(v)
@@ -130,7 +130,7 @@ func (r *runner) cmdVersion() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer m.Close()
+			defer func() { _, _ = m.Close() }()
 			version, dirty, err := m.Version()
 			if errors.Is(err, migrate.ErrNilVersion) {
 				fmt.Println("no migrations applied")
@@ -157,7 +157,7 @@ func (r *runner) cmdDrop() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer m.Close()
+			defer func() { _, _ = m.Close() }()
 
 			r.logger.Warn("DROPPING all tables in schema", "schema", r.cfg.Schema)
 			return m.Drop()
@@ -226,12 +226,12 @@ func openPGXDB(url, schema string) (dbHandle, error) {
 	if _, err := conn.Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", schema)); err != nil {
 		var pgErr *pgconn.PgError
 		if !errors.As(err, &pgErr) || (pgErr.Code != "42P06" && pgErr.Code != "23505") {
-			conn.Close()
+			_ = conn.Close()
 			return nil, fmt.Errorf("create schema: %w", err)
 		}
 	}
 	if _, err := conn.Exec(fmt.Sprintf("SET search_path TO %s, public", schema)); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("set search_path: %w", err)
 	}
 	return conn, nil

@@ -9,6 +9,7 @@
 package auth
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -16,6 +17,14 @@ import (
 
 	identityv1 "github.com/paper-board/proto/gen/go/identity/v1"
 )
+
+type authErrResp struct {
+	Error authErrMsg `json:"error"`
+}
+
+type authErrMsg struct {
+	Message string `json:"message"`
+}
 
 // Config holds the shared dependencies for the auth middleware factories.
 // Create with New; then call Require / RequireRole on routes.
@@ -146,5 +155,9 @@ func (cfg *Config) RequireRole(roles ...Role) func(http.Handler) http.Handler {
 func writeAuthErr(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_, _ = w.Write([]byte(`{"error":{"message":"` + msg + `"}}`))
+	body, err := json.Marshal(authErrResp{Error: authErrMsg{Message: msg}})
+	if err != nil {
+		body = []byte(`{"error":{"message":"internal error"}}`)
+	}
+	_, _ = w.Write(body)
 }
