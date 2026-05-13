@@ -44,7 +44,7 @@ func TestRequire_no_header_401(t *testing.T) {
 	cfg := New(WithClient(&mock.AuthClient{}))
 	mw := cfg.Require(JWT, APIKey)
 
-	req := httptest.NewRequestWithContext(context.Background(),http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
 	mw(okHandler).ServeHTTP(rec, req)
 
@@ -57,7 +57,7 @@ func TestRequire_non_bearer_scheme_401(t *testing.T) {
 	cfg := New(WithClient(&mock.AuthClient{}))
 	mw := cfg.Require(JWT, APIKey)
 
-	req := httptest.NewRequestWithContext(context.Background(),http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Basic dXNlcjpwYXNz")
 	rec := httptest.NewRecorder()
 	mw(okHandler).ServeHTTP(rec, req)
@@ -76,7 +76,7 @@ func TestRequire_apikey_format_routes_to_apikey_verify(t *testing.T) {
 	cfg := New(WithClient(mc))
 	mw := cfg.Require(APIKey)
 
-	req := httptest.NewRequestWithContext(context.Background(),http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer "+testAPIKey)
 	rec := httptest.NewRecorder()
 
@@ -114,7 +114,7 @@ func TestRequire_jwt_format_routes_to_jwt_verify(t *testing.T) {
 	mw := cfg.Require(JWT)
 
 	raw := signJWT(t, priv, kid, userID, orgID, "live", time.Hour)
-	req := httptest.NewRequestWithContext(context.Background(),http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer "+raw)
 	rec := httptest.NewRecorder()
 
@@ -142,7 +142,7 @@ func TestRequire_mode_mismatch_401(t *testing.T) {
 	cfg := New(WithClient(&mock.AuthClient{}))
 	mw := cfg.Require(JWT) // only JWT allowed
 
-	req := httptest.NewRequestWithContext(context.Background(),http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer "+testAPIKey) // APIKey format
 	rec := httptest.NewRecorder()
 	mw(okHandler).ServeHTTP(rec, req)
@@ -161,7 +161,7 @@ func TestRequire_apikey_verify_failure_401(t *testing.T) {
 	cfg := New(WithClient(mc))
 	mw := cfg.Require(APIKey)
 
-	req := httptest.NewRequestWithContext(context.Background(),http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer "+testAPIKey)
 	rec := httptest.NewRecorder()
 	mw(okHandler).ServeHTTP(rec, req)
@@ -180,7 +180,7 @@ func TestRequireRole_owner_passes(t *testing.T) {
 	cfg := New(WithClient(mc))
 	chain := cfg.Require(APIKey)(cfg.RequireRole(Owner)(okHandler))
 
-	req := httptest.NewRequestWithContext(context.Background(),http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer "+testAPIKey)
 	rec := httptest.NewRecorder()
 	chain.ServeHTTP(rec, req)
@@ -199,7 +199,7 @@ func TestRequireRole_member_denied_403(t *testing.T) {
 	cfg := New(WithClient(mc))
 	chain := cfg.Require(APIKey)(cfg.RequireRole(Owner)(okHandler))
 
-	req := httptest.NewRequestWithContext(context.Background(),http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer "+testAPIKey)
 	rec := httptest.NewRecorder()
 	chain.ServeHTTP(rec, req)
@@ -213,7 +213,7 @@ func TestRequireRole_no_auth_ctx_401(t *testing.T) {
 	cfg := New(WithClient(&mock.AuthClient{}))
 	mw := cfg.RequireRole(Owner)
 
-	req := httptest.NewRequestWithContext(context.Background(),http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
 	mw(okHandler).ServeHTTP(rec, req)
 
@@ -238,7 +238,7 @@ func TestRequire_both_modes_accepted(t *testing.T) {
 	mw := cfg.Require(JWT, APIKey)
 
 	raw := signJWT(t, priv, kid, userID, orgID, "live", time.Hour)
-	req := httptest.NewRequestWithContext(context.Background(),http.MethodGet, "/", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer "+raw)
 	rec := httptest.NewRecorder()
 	mw(okHandler).ServeHTTP(rec, req)

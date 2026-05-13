@@ -36,7 +36,10 @@ func verifyJWT(ctx context.Context, store *Keystore, raw string) (AuthCtx, error
 	ac, keyErr, verifyErr := parseAndVerify(ctx, store, parser, raw, kid, false)
 	if keyErr != nil {
 		// Key lookup or parse failed — refresh once and retry before giving up.
-		ac2, _, verifyErr2 := parseAndVerify(ctx, store, parser, raw, kid, true)
+		ac2, keyErr2, verifyErr2 := parseAndVerify(ctx, store, parser, raw, kid, true)
+		if keyErr2 != nil {
+			return AuthCtx{}, ErrKeyRetired
+		}
 		if verifyErr2 != nil {
 			return AuthCtx{}, ErrKeyRetired
 		}

@@ -62,8 +62,8 @@ func TestVerifyAPIKey_success(t *testing.T) {
 
 func TestVerifyAPIKey_status_to_sentinel(t *testing.T) {
 	cases := []struct {
-		name       string
-		grpcCode   codes.Code
+		name         string
+		grpcCode     codes.Code
 		wantSentinel error
 	}{
 		{
