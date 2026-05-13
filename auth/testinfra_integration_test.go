@@ -15,8 +15,9 @@ package auth
 //   real SQL, real argon2id hash verification, real RS256 key management —
 //   the actual verification logic, not stubs.
 //
-// CI: test binary exits 0 immediately when os.Getenv("CI") != "". Full CI
-// wiring deferred to Task 14 (cross-service integration).
+// Gate: tests run only when RUN_INTEGRATION=1. Otherwise TestMain exits 0
+// (so "not executed" is explicit, not mistaken for "passed"). Full CI wiring
+// deferred to Task 14 (cross-service integration).
 
 import (
 	"context"
@@ -49,9 +50,10 @@ import (
 
 const bufSize = 1024 * 1024
 
-// identitySchema mirrors 000001_init.up.sql from paper-board/identity.
-// Inlined to avoid a hard sibling-repo path dependency at test build time.
-// If identity adds migrations, update here too.
+// identitySchema mirrors paper-board/identity/migrations/schema/000001_init.up.sql
+// (last synced at identity@41d9312). Inlined to avoid a hard sibling-repo path
+// dependency at test build time. If identity adds migrations, update here too;
+// drift surfaces only as runtime test failure, not at compile time.
 const identitySchema = `
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS citext   WITH SCHEMA public;
