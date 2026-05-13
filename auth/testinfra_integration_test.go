@@ -137,18 +137,23 @@ var harness struct {
 	orgID    uuid.UUID
 	validKey string // live-env api key created during setup
 	jwtKEK   []byte // 32-byte AES-256-GCM key used by the in-process JWT issuer
+	cleanup  func()
 }
 
 func TestMain(m *testing.M) {
-	if os.Getenv("CI") != "" {
-		fmt.Fprintln(os.Stderr, "sdk/auth integration tests: skipped on CI (Task 14 will wire CI)")
+	if os.Getenv("RUN_INTEGRATION") != "1" {
+		fmt.Fprintln(os.Stderr, "sdk/auth integration tests: skipped (set RUN_INTEGRATION=1 to run; Task 14 will wire CI)")
 		os.Exit(0)
 	}
 	if err := bootHarness(); err != nil {
 		fmt.Fprintf(os.Stderr, "FAIL: integration harness boot: %v\n", err)
 		os.Exit(1)
 	}
-	os.Exit(m.Run())
+	code := m.Run()
+	if harness.cleanup != nil {
+		harness.cleanup()
+	}
+	os.Exit(code)
 }
 
 func bootHarness() error {
@@ -168,17 +173,24 @@ func bootHarness() error {
 
 	dbURL, err := pg.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
+		_ = pg.Terminate(context.Background())
 		return fmt.Errorf("connection string: %w", err)
 	}
 
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
+		_ = pg.Terminate(context.Background())
 		return fmt.Errorf("pool: %w", err)
 	}
 	harness.pool = pool
 
 	// Apply schema.
 	if _, err := pool.Exec(ctx, identitySchema); err != nil {
+		harness.cleanup = func() {
+			pool.Close()
+			_ = pg.Terminate(context.Background())
+		}
+		harness.cleanup()
 		return fmt.Errorf("schema: %w", err)
 	}
 
@@ -192,6 +204,11 @@ func bootHarness() error {
 	// Seed: user + org + owner membership + initial live-env api key.
 	uid, oid, rawKey, err := seedBaseFixtures(ctx, pool)
 	if err != nil {
+		harness.cleanup = func() {
+			pool.Close()
+			_ = pg.Terminate(context.Background())
+		}
+		harness.cleanup()
 		return fmt.Errorf("seed fixtures: %w", err)
 	}
 	harness.userID = uid
@@ -200,15 +217,36 @@ func bootHarness() error {
 
 	// Seed: active auth key pair (for JWT issuance in tests).
 	if err := seedAuthKey(ctx, pool, kek); err != nil {
+		harness.cleanup = func() {
+			pool.Close()
+			_ = pg.Terminate(context.Background())
+		}
+		harness.cleanup()
 		return fmt.Errorf("seed auth key: %w", err)
 	}
 
 	// In-process gRPC identity server over bufconn.
-	conn, err := startIdentityServer(pool, kek)
+	conn, srv, err := startIdentityServer(pool, kek)
 	if err != nil {
+		harness.cleanup = func() {
+			pool.Close()
+			_ = pg.Terminate(context.Background())
+		}
+		harness.cleanup()
 		return fmt.Errorf("identity grpc: %w", err)
 	}
 	harness.grpcConn = conn
+
+	harness.cleanup = func() {
+		if harness.grpcConn != nil {
+			_ = harness.grpcConn.Close()
+		}
+		if harness.pool != nil {
+			harness.pool.Close()
+		}
+		srv.GracefulStop()
+		_ = pg.Terminate(context.Background())
+	}
 	return nil
 }
 
@@ -298,8 +336,8 @@ func seedAuthKey(ctx context.Context, pool *pgxpool.Pool, kek []byte) error {
 }
 
 // startIdentityServer creates a bufconn gRPC server with a real-DB-backed
-// AuthService implementation and returns a connected *grpc.ClientConn.
-func startIdentityServer(pool *pgxpool.Pool, kek []byte) (*grpc.ClientConn, error) {
+// AuthService implementation and returns a connected *grpc.ClientConn and the server handle.
+func startIdentityServer(pool *pgxpool.Pool, kek []byte) (*grpc.ClientConn, *grpc.Server, error) {
 	lis := bufconn.Listen(bufSize)
 	srv := grpc.NewServer()
 	identityv1.RegisterAuthServiceServer(srv, &dbAuthServer{pool: pool, kek: kek, env: "live"})
@@ -313,9 +351,9 @@ func startIdentityServer(pool *pgxpool.Pool, kek []byte) (*grpc.ClientConn, erro
 	)
 	if err != nil {
 		srv.GracefulStop()
-		return nil, err
+		return nil, nil, err
 	}
-	return conn, nil
+	return conn, srv, nil
 }
 
 // dbAuthServer implements identityv1.AuthServiceServer backed by real Postgres.

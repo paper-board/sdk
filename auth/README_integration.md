@@ -27,8 +27,8 @@ This is not mocking: real SQL queries, real crypto, real schema.
 ## Running locally
 
 ```bash
-cd ~/Projects/paper-board/sdk
-go test -tags=integration -race -count=1 -p 1 ./auth/...
+# From the repository root:
+RUN_INTEGRATION=1 go test -tags=integration -race -count=1 -p 1 ./auth/...
 ```
 
 Docker must be running (testcontainers needs it). First run pulls `postgres:16-alpine`.
@@ -36,7 +36,7 @@ Expected output: 8 `TestIntegration_*` cases PASS (~3-4 s).
 
 ## CI
 
-Integration tests skip automatically when `CI` env var is non-empty (`TestMain`
+Integration tests skip by default unless `RUN_INTEGRATION=1` is set (`TestMain`
 exits 0). Full CI wiring deferred to Task 14 (cross-service integration).
 
 ## 8 cases
