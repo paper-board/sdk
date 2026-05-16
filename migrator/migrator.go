@@ -1,16 +1,18 @@
 // Package migrator provides a thin wrapper around golang-migrate for paper-board
 // services. Each service ships a ~30-line cmd/migrator/main.go that calls Run
-// with a Config carrying the embedded migrations and service-specific advisory
-// lock id.
+// with a Config carrying the embedded migrations.
+//
+// Advisory locking is driver-managed via golang-migrate's pgx/v5 driver, which
+// derives a CRC32 lock id from database+schema. Schema-per-service (ADR-0002)
+// guarantees hash isolation across services — no manual lock id needed.
 //
 // Usage:
 //
 //	cfg := migrator.Config{
-//	    DBURL:          os.Getenv("MIGRATION_DB_URL"),
-//	    Schema:         "identity",
-//	    AdvisoryLockID: 1,
-//	    EmbedFS:        migrations.SchemaFS,
-//	    EmbedRoot:      "schema",
+//	    DBURL:     os.Getenv("MIGRATION_DB_URL"),
+//	    Schema:    "identity",
+//	    EmbedFS:   migrations.SchemaFS,
+//	    EmbedRoot: "schema",
 //	}
 //	migrator.Run(context.Background(), cfg, os.Args[1:])
 package migrator
@@ -33,14 +35,6 @@ type Config struct {
 	// Migrations run with search_path=<Schema>,public.
 	Schema string
 
-	// AdvisoryLockID is unique per service. paper-board mapping:
-	//   identity = 1
-	//   billing  = 2
-	//   agents   = 3
-	//   platform = 4
-	// This allows parallel migrations across services without serialization.
-	AdvisoryLockID int
-
 	// EmbedFS is the embedded migration filesystem from the service repo.
 	// Convention: //go:embed schema/*.sql
 	EmbedFS embed.FS
@@ -58,9 +52,6 @@ func (c Config) validate() error {
 	}
 	if c.Schema == "" {
 		missing = append(missing, "Schema")
-	}
-	if c.AdvisoryLockID == 0 {
-		missing = append(missing, "AdvisoryLockID (must be > 0)")
 	}
 	if c.EmbedRoot == "" {
 		missing = append(missing, "EmbedRoot")

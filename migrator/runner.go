@@ -23,7 +23,7 @@ type runner struct {
 func newRunner(cfg Config) *runner {
 	return &runner{
 		cfg:    cfg,
-		logger: slog.New(slog.NewJSONHandler(os.Stderr, nil)).With("service", cfg.Schema, "lock_id", cfg.AdvisoryLockID),
+		logger: slog.New(slog.NewJSONHandler(os.Stderr, nil)).With("service", cfg.Schema),
 	}
 }
 

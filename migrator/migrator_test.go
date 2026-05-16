@@ -1,5 +1,9 @@
 //go:build integration
 
+// Advisory locking is now driver-managed via golang-migrate's pgx/v5 driver.
+// Lock ID is CRC32(database+schema) — schema-per-service (ADR-0002) guarantees
+// hash isolation across services.
+
 package migrator_test
 
 import (
@@ -45,10 +49,9 @@ func setupPostgres(t *testing.T) (string, func()) {
 
 func TestRun_MissingDBURL(t *testing.T) {
 	cfg := migrator.Config{
-		Schema:         "test_schema",
-		AdvisoryLockID: 99,
-		EmbedFS:        testSchemaFS,
-		EmbedRoot:      "testdata/schema",
+		Schema:    "test_schema",
+		EmbedFS:   testSchemaFS,
+		EmbedRoot: "testdata/schema",
 	}
 	err := migrator.Run(context.Background(), cfg, []string{"version"})
 	if err == nil {
@@ -61,11 +64,10 @@ func TestRun_UpEmptyDB(t *testing.T) {
 	defer cleanup()
 
 	cfg := migrator.Config{
-		DBURL:          url,
-		Schema:         "test_schema",
-		AdvisoryLockID: 99,
-		EmbedFS:        testSchemaFS,
-		EmbedRoot:      "testdata/schema",
+		DBURL:     url,
+		Schema:    "test_schema",
+		EmbedFS:   testSchemaFS,
+		EmbedRoot: "testdata/schema",
 	}
 	if err := migrator.Run(context.Background(), cfg, []string{"up"}); err != nil {
 		t.Fatalf("migrator up failed: %v", err)
@@ -77,11 +79,10 @@ func TestRun_DownRoundTrip(t *testing.T) {
 	defer cleanup()
 
 	cfg := migrator.Config{
-		DBURL:          url,
-		Schema:         "test_schema",
-		AdvisoryLockID: 99,
-		EmbedFS:        testSchemaFS,
-		EmbedRoot:      "testdata/schema",
+		DBURL:     url,
+		Schema:    "test_schema",
+		EmbedFS:   testSchemaFS,
+		EmbedRoot: "testdata/schema",
 	}
 	ctx := context.Background()
 
@@ -102,11 +103,10 @@ func TestRun_DropRequiresDevEnv(t *testing.T) {
 
 	t.Setenv("MIGRATOR_ENV", "prod")
 	cfg := migrator.Config{
-		DBURL:          url,
-		Schema:         "test_schema",
-		AdvisoryLockID: 99,
-		EmbedFS:        testSchemaFS,
-		EmbedRoot:      "testdata/schema",
+		DBURL:     url,
+		Schema:    "test_schema",
+		EmbedFS:   testSchemaFS,
+		EmbedRoot: "testdata/schema",
 	}
 	err := migrator.Run(context.Background(), cfg, []string{"drop"})
 	if err == nil {
@@ -119,11 +119,10 @@ func TestRun_AdvisoryLockBlocks(t *testing.T) {
 	defer cleanup()
 
 	cfg := migrator.Config{
-		DBURL:          url,
-		Schema:         "test_schema",
-		AdvisoryLockID: 99,
-		EmbedFS:        testSchemaFS,
-		EmbedRoot:      "testdata/schema",
+		DBURL:     url,
+		Schema:    "test_schema",
+		EmbedFS:   testSchemaFS,
+		EmbedRoot: "testdata/schema",
 	}
 
 	var wg sync.WaitGroup
