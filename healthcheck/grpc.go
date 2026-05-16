@@ -30,6 +30,9 @@ func (g *grpcChecker) Check(ctx context.Context) error {
 	default:
 		g.conn.Connect()
 		if !g.conn.WaitForStateChange(ctx, state) {
+			if err := ctx.Err(); err != nil {
+				return fmt.Errorf("grpc %s: %w", g.name, err)
+			}
 			return fmt.Errorf("grpc %s: connection state %s (timeout)", g.name, state)
 		}
 		newState := g.conn.GetState()

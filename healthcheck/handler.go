@@ -20,6 +20,7 @@ type response struct {
 // passes, 503 when any check fails.
 func (r *Registry) Handler() http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
+		// +250ms slack to cover WaitGroup join + JSON encode after per-checker budget.
 		ctx, cancel := context.WithTimeout(req.Context(), checkTimeout+250*time.Millisecond)
 		defer cancel()
 

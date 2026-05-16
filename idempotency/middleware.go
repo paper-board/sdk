@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -91,21 +92,24 @@ func Require(store Store, opts ...Option) func(http.Handler) http.Handler {
 				return
 			}
 
-			cap := &responseCapture{ResponseWriter: w}
-			next.ServeHTTP(cap, r)
+			captured := &responseCapture{ResponseWriter: w}
+			next.ServeHTTP(captured, r)
 
-			if cap.status >= 200 && cap.status < 300 {
+			if captured.status >= 200 && captured.status < 300 {
 				rec := &Record{
 					OrgID:           orgID,
 					Key:             key,
 					RequestHash:     hash,
-					ResponseStatus:  cap.status,
-					ResponseBody:    cap.body,
-					ResponseHeaders: captureHeaders(cap.Header()),
+					ResponseStatus:  captured.status,
+					ResponseBody:    captured.body,
+					ResponseHeaders: captureHeaders(captured.Header()),
 					CreatedAt:       time.Now(),
 					ExpiresAt:       time.Now().Add(ttl),
 				}
-				_ = store.Put(r.Context(), rec)
+				if err := store.Put(r.Context(), rec); err != nil {
+					slog.ErrorContext(r.Context(), "idempotency: store put failed; replay broken for this key",
+						"err", err, "org_id", rec.OrgID, "key", rec.Key)
+				}
 			}
 		})
 	}

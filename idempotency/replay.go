@@ -16,6 +16,9 @@ func (c *responseCapture) WriteHeader(code int) {
 }
 
 func (c *responseCapture) Write(b []byte) (int, error) {
+	if c.status == 0 {
+		c.status = http.StatusOK
+	}
 	c.body = append(c.body, b...)
 	return c.ResponseWriter.Write(b)
 }

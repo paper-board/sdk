@@ -1,9 +1,6 @@
 package healthcheck
 
-import (
-	"context"
-	"time"
-)
+import "context"
 
 // Checker probes a single dependency for readiness.
 type Checker interface {
@@ -16,9 +13,8 @@ type Checker interface {
 
 // Result is the per-checker outcome included in handler responses.
 type Result struct {
-	Name      string        `json:"name"`
-	Status    string        `json:"status"` // "ok" or "fail"
-	LatencyMs int64         `json:"latency_ms"`
-	Err       string        `json:"err,omitempty"`
-	took      time.Duration `json:"-"`
+	Name      string `json:"name"`
+	Status    string `json:"status"` // "ok" or "fail"
+	LatencyMs int64  `json:"latency_ms"`
+	Err       string `json:"err,omitempty"`
 }
