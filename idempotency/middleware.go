@@ -94,6 +94,9 @@ func Require(store Store, opts ...Option) func(http.Handler) http.Handler {
 
 			captured := &responseCapture{ResponseWriter: w}
 			next.ServeHTTP(captured, r)
+			if captured.status == 0 {
+				captured.status = http.StatusOK
+			}
 
 			if captured.status >= 200 && captured.status < 300 {
 				rec := &Record{
@@ -115,12 +118,15 @@ func Require(store Store, opts ...Option) func(http.Handler) http.Handler {
 	}
 }
 
-func captureHeaders(h http.Header) map[string]string {
-	out := make(map[string]string, len(h))
+func captureHeaders(h http.Header) map[string][]string {
+	out := make(map[string][]string, len(h))
 	for k, v := range h {
-		if len(v) > 0 {
-			out[k] = v[0]
+		if len(v) == 0 {
+			continue
 		}
+		vv := make([]string, len(v))
+		copy(vv, v)
+		out[k] = vv
 	}
 	return out
 }

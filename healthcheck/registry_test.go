@@ -16,7 +16,11 @@ func TestRegistry_EmptyReturns200(t *testing.T) {
 	srv := httptest.NewServer(r.Handler())
 	defer srv.Close()
 
-	resp, err := http.Get(srv.URL)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -30,7 +34,9 @@ func TestRegistry_EmptyReturns200(t *testing.T) {
 		Status string                        `json:"status"`
 		Checks map[string]healthcheck.Result `json:"checks"`
 	}
-	_ = json.NewDecoder(resp.Body).Decode(&body)
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
 	if body.Status != "ready" {
 		t.Fatalf("expected 'ready', got %q", body.Status)
 	}
@@ -46,7 +52,11 @@ func TestRegistry_FailingCheckerReturns503(t *testing.T) {
 	srv := httptest.NewServer(r.Handler())
 	defer srv.Close()
 
-	resp, err := http.Get(srv.URL)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
@@ -60,7 +70,9 @@ func TestRegistry_FailingCheckerReturns503(t *testing.T) {
 		Status string                        `json:"status"`
 		Checks map[string]healthcheck.Result `json:"checks"`
 	}
-	_ = json.NewDecoder(resp.Body).Decode(&body)
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
 	if body.Status != "not_ready" {
 		t.Fatalf("expected 'not_ready', got %q", body.Status)
 	}

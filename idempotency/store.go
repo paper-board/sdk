@@ -15,7 +15,7 @@ type Record struct {
 	RequestHash     string
 	ResponseStatus  int
 	ResponseBody    []byte
-	ResponseHeaders map[string]string
+	ResponseHeaders map[string][]string
 	CreatedAt       time.Time
 	ExpiresAt       time.Time
 }

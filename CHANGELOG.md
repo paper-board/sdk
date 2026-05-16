@@ -32,6 +32,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - On replay, response body + headers replayed byte-for-byte; adds
     `Idempotent-Replay: true` header.
 
+### Changed
+
+- **BREAKING (pre-tag):** `idempotency.Record.ResponseHeaders` type changed
+  from `map[string]string` to `map[string][]string` so repeated headers
+  (e.g. `Set-Cookie`) survive a replay. Store implementations must
+  serialize the multi-value form (e.g. JSON-encode the map).
+- `idempotency` request hash now includes `r.URL.RawQuery` so requests
+  differing only by query string no longer collide on the same
+  Idempotency-Key.
+- `idempotency` middleware now coerces an unset status (handler returned
+  without `WriteHeader`/`Write`) to `200 OK` before persisting, matching
+  Go's stdlib implicit-200 behaviour; replay now works for empty-body
+  success handlers.
+
 ### Removed
 
 - **BREAKING:** `migrator.Config.AdvisoryLockID` field. Advisory locks are now

@@ -24,10 +24,14 @@ func (c *responseCapture) Write(b []byte) (int, error) {
 }
 
 func replayResponse(w http.ResponseWriter, rec *Record) {
-	for k, v := range rec.ResponseHeaders {
-		w.Header().Set(k, v)
+	h := w.Header()
+	for k, vs := range rec.ResponseHeaders {
+		h.Del(k)
+		for _, v := range vs {
+			h.Add(k, v)
+		}
 	}
-	w.Header().Set("Idempotent-Replay", "true")
+	h.Set("Idempotent-Replay", "true")
 	w.WriteHeader(rec.ResponseStatus)
 	_, _ = w.Write(rec.ResponseBody)
 }

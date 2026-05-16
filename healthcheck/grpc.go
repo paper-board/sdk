@@ -33,7 +33,7 @@ func (g *grpcChecker) Check(ctx context.Context) error {
 			if err := ctx.Err(); err != nil {
 				return fmt.Errorf("grpc %s: %w", g.name, err)
 			}
-			return fmt.Errorf("grpc %s: connection state %s (timeout)", g.name, state)
+			return fmt.Errorf("grpc %s: connection state unchanged from %s (current: %s)", g.name, state, g.conn.GetState())
 		}
 		newState := g.conn.GetState()
 		if newState == connectivity.Ready || newState == connectivity.Idle {
