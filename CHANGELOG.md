@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0](https://github.com/paper-board/sdk/compare/v0.3.0...v0.4.0) (2026-05-16)
+
+
+### Features
+
+* **sdk:** v0.4.0 — healthcheck + idempotency + advisory drop ([#7](https://github.com/paper-board/sdk/issues/7)) ([a8e2cb6](https://github.com/paper-board/sdk/commit/a8e2cb60391a278ab5c35c865c1fc0da460a94ca))
+
 ## [v0.4.0] — 2026-05-16
 
 ### Added
