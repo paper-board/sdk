@@ -1,0 +1,224 @@
+package idempotency_test
+
+import (
+	"bytes"
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/paper-board/sdk/idempotency"
+)
+
+func TestMiddleware_RetryReplaysResponse(t *testing.T) {
+	store := idempotency.NewMemoryStore()
+	orgID := uuid.New()
+
+	executions := 0
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		executions++
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(201)
+		_, _ = w.Write([]byte(`{"id":"new"}`))
+	})
+
+	mw := idempotency.Require(store)(handler)
+
+	req := func() *http.Request {
+		r := httptest.NewRequest(http.MethodPost, "/v1/resource", bytes.NewBufferString(`{"name":"foo"}`))
+		r.Header.Set("Idempotency-Key", "test-key-1")
+		r = r.WithContext(idempotency.WithOrgID(context.Background(), orgID))
+		return r
+	}
+
+	w1 := httptest.NewRecorder()
+	mw.ServeHTTP(w1, req())
+	if w1.Code != 201 {
+		t.Fatalf("first call: expected 201, got %d", w1.Code)
+	}
+	if executions != 1 {
+		t.Fatalf("expected 1 execution, got %d", executions)
+	}
+
+	w2 := httptest.NewRecorder()
+	mw.ServeHTTP(w2, req())
+	if w2.Code != 201 {
+		t.Fatalf("retry: expected 201 (replay), got %d", w2.Code)
+	}
+	if executions != 1 {
+		t.Fatalf("expected handler NOT re-executed, got %d total executions", executions)
+	}
+	if w2.Header().Get("Idempotent-Replay") != "true" {
+		t.Fatal("expected Idempotent-Replay header on replay")
+	}
+}
+
+func TestMiddleware_BodyMismatchReturns422(t *testing.T) {
+	store := idempotency.NewMemoryStore()
+	orgID := uuid.New()
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(201)
+		_, _ = w.Write([]byte(`{"id":"x"}`))
+	})
+	mw := idempotency.Require(store)(handler)
+
+	r1 := httptest.NewRequest(http.MethodPost, "/v1/resource", bytes.NewBufferString(`{"name":"a"}`))
+	r1.Header.Set("Idempotency-Key", "same-key")
+	r1 = r1.WithContext(idempotency.WithOrgID(context.Background(), orgID))
+	mw.ServeHTTP(httptest.NewRecorder(), r1)
+
+	r2 := httptest.NewRequest(http.MethodPost, "/v1/resource", bytes.NewBufferString(`{"name":"b"}`))
+	r2.Header.Set("Idempotency-Key", "same-key")
+	r2 = r2.WithContext(idempotency.WithOrgID(context.Background(), orgID))
+	w := httptest.NewRecorder()
+	mw.ServeHTTP(w, r2)
+
+	if w.Code != 422 {
+		t.Fatalf("expected 422 conflict, got %d", w.Code)
+	}
+}
+
+func TestMiddleware_ImplicitOK_PersistsAndReplays(t *testing.T) {
+	store := idempotency.NewMemoryStore()
+	orgID := uuid.New()
+
+	executions := 0
+	// Handler writes body without ever calling WriteHeader. Go's stdlib
+	// implicit-200 path applies; capture wrapper must record status=200.
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		executions++
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	})
+
+	mw := idempotency.Require(store)(handler)
+
+	req := func() *http.Request {
+		r := httptest.NewRequest(http.MethodPost, "/v1/implicit", bytes.NewBufferString(`{"x":1}`))
+		r.Header.Set("Idempotency-Key", "implicit-key-1")
+		r = r.WithContext(idempotency.WithOrgID(context.Background(), orgID))
+		return r
+	}
+
+	w1 := httptest.NewRecorder()
+	mw.ServeHTTP(w1, req())
+	if w1.Code != 200 {
+		t.Fatalf("first call: expected implicit 200, got %d", w1.Code)
+	}
+	if executions != 1 {
+		t.Fatalf("expected 1 execution after first call, got %d", executions)
+	}
+
+	w2 := httptest.NewRecorder()
+	mw.ServeHTTP(w2, req())
+	if w2.Code != 200 {
+		t.Fatalf("retry: expected replayed 200, got %d", w2.Code)
+	}
+	if executions != 1 {
+		t.Fatalf("handler must NOT re-execute on retry; got %d total executions", executions)
+	}
+	if w2.Header().Get("Idempotent-Replay") != "true" {
+		t.Fatal("expected Idempotent-Replay header on replay")
+	}
+	if got := w2.Body.String(); got != `{"ok":true}` {
+		t.Fatalf("replay body mismatch: got %q", got)
+	}
+}
+
+func TestMiddleware_NoOutput_PersistsAndReplays(t *testing.T) {
+	store := idempotency.NewMemoryStore()
+	orgID := uuid.New()
+
+	executions := 0
+	// Handler returns without calling WriteHeader or Write. Go's stdlib
+	// implicit-200 path applies on a real ResponseWriter; capture wrapper
+	// must record status=200 so the entry is persisted and replayed.
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		executions++
+	})
+
+	mw := idempotency.Require(store)(handler)
+
+	req := func() *http.Request {
+		r := httptest.NewRequest(http.MethodPost, "/v1/nooutput", bytes.NewBufferString(`{"x":1}`))
+		r.Header.Set("Idempotency-Key", "nooutput-key-1")
+		r = r.WithContext(idempotency.WithOrgID(context.Background(), orgID))
+		return r
+	}
+
+	w1 := httptest.NewRecorder()
+	mw.ServeHTTP(w1, req())
+	if w1.Code != 200 {
+		t.Fatalf("first call: expected implicit 200, got %d", w1.Code)
+	}
+	if executions != 1 {
+		t.Fatalf("expected 1 execution, got %d", executions)
+	}
+
+	w2 := httptest.NewRecorder()
+	mw.ServeHTTP(w2, req())
+	if w2.Code != 200 {
+		t.Fatalf("retry: expected replayed 200, got %d", w2.Code)
+	}
+	if executions != 1 {
+		t.Fatalf("handler must NOT re-execute on retry; got %d total executions", executions)
+	}
+	if w2.Header().Get("Idempotent-Replay") != "true" {
+		t.Fatal("expected Idempotent-Replay header on replay")
+	}
+}
+
+func TestMiddleware_QueryStringSeparatesKey(t *testing.T) {
+	store := idempotency.NewMemoryStore()
+	orgID := uuid.New()
+	executions := 0
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		executions++
+		w.WriteHeader(201)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	})
+	mw := idempotency.Require(store)(handler)
+
+	mk := func(q string) *http.Request {
+		r := httptest.NewRequest(http.MethodPost, "/v1/resource?"+q, bytes.NewBufferString(`{}`))
+		r.Header.Set("Idempotency-Key", "qs-key-1")
+		r = r.WithContext(idempotency.WithOrgID(context.Background(), orgID))
+		return r
+	}
+
+	// Two requests with same key + body but different query strings must
+	// hash differently and trigger 422 conflict (not silent replay).
+	w1 := httptest.NewRecorder()
+	mw.ServeHTTP(w1, mk("a=1"))
+	if w1.Code != 201 {
+		t.Fatalf("first: expected 201, got %d", w1.Code)
+	}
+
+	w2 := httptest.NewRecorder()
+	mw.ServeHTTP(w2, mk("a=2"))
+	if w2.Code != 422 {
+		t.Fatalf("second (different query): expected 422 conflict, got %d", w2.Code)
+	}
+}
+
+func TestMiddleware_ExcludedRouteBypasses(t *testing.T) {
+	store := idempotency.NewMemoryStore()
+	orgID := uuid.New()
+	executions := 0
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		executions++
+		w.WriteHeader(200)
+	})
+	mw := idempotency.Require(store, idempotency.WithExclude("POST /v1/auth/login"))(handler)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/auth/login", bytes.NewBufferString(`{}`))
+	req.Header.Set("Idempotency-Key", "ignored")
+	req = req.WithContext(idempotency.WithOrgID(context.Background(), orgID))
+
+	mw.ServeHTTP(httptest.NewRecorder(), req)
+	mw.ServeHTTP(httptest.NewRecorder(), req)
+
+	if executions != 2 {
+		t.Fatalf("excluded route should not replay; expected 2 executions, got %d", executions)
+	}
+}

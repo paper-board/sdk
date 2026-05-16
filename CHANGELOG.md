@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.0] — 2026-05-16
+
+### Added
+
+- `healthcheck` package — composable readiness probe registry.
+  - `Checker` interface, `Registry`, `New(checks...)` constructor.
+  - `Handler()` runs all registered checks in parallel with a 500ms per-check
+    budget; returns 200 + `{"status":"ready",...}` when all pass, 503 +
+    `{"status":"not_ready",...}` when any fails.
+  - Built-in `DB(*pgxpool.Pool)` checker — `SELECT 1` ping.
+  - Built-in `GRPC(name, *grpc.ClientConn)` checker — connectivity state probe
+    (Ready/Idle = ok; otherwise triggers `Connect` + waits for state change).
+  - `IsProbePath(*http.Request) bool` helper — true for `/livez`, `/readyz`,
+    `/healthz`; use in service middleware to skip logger + otel for probe traffic.
+- `idempotency` package — HTTP middleware implementing Idempotency-Key
+  semantics (Stripe-style).
+  - `Require(store, opts...)` opt-in middleware; default applies to
+    POST/PUT/PATCH/DELETE; bypasses GET/HEAD/OPTIONS.
+  - `WithExclude(routes...)` bypasses specific routes (e.g.
+    `"POST /v1/auth/login"`).
+  - Request body SHA-256 + 422 conflict on body mismatch with same key.
+  - 24h TTL; per-tenant (org_id) keying via `WithOrgID(ctx, orgID)` set by
+    upstream auth middleware.
+  - `Store` interface for per-service per-schema storage; `MemoryStore` for tests.
+  - On replay, response body + headers replayed byte-for-byte; adds
+    `Idempotent-Replay: true` header.
+
+### Changed
+
+- **BREAKING (pre-tag):** `idempotency.Record.ResponseHeaders` type changed
+  from `map[string]string` to `map[string][]string` so repeated headers
+  (e.g. `Set-Cookie`) survive a replay. Store implementations must
+  serialize the multi-value form (e.g. JSON-encode the map).
+- `idempotency` request hash now includes `r.URL.RawQuery` so requests
+  differing only by query string no longer collide on the same
+  Idempotency-Key.
+- `idempotency` middleware now coerces an unset status (handler returned
+  without `WriteHeader`/`Write`) to `200 OK` before persisting, matching
+  Go's stdlib implicit-200 behaviour; replay now works for empty-body
+  success handlers.
+
+### Removed
+
+- **BREAKING:** `migrator.Config.AdvisoryLockID` field. Advisory locks are now
+  managed by `golang-migrate` pgx/v5 driver via `CRC32(database+schema)`.
+  Schema-per-service (ADR-0002) guarantees hash isolation across services.
+  Remove the field from your `cmd/migrator/main.go` Config literal.
+
 ## [0.3.0](https://github.com/paper-board/sdk/compare/v0.2.0...v0.3.0) (2026-05-13)
 
 

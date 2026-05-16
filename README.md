@@ -37,11 +37,10 @@ import (
 
 func main() {
     cfg := migrator.Config{
-        DBURL:          os.Getenv("MIGRATION_DB_URL"),
-        Schema:         "identity",
-        AdvisoryLockID: 1, // identity=1, billing=2, agents=3, platform=4
-        EmbedFS:        migrations.SchemaFS,
-        EmbedRoot:      "schema",
+        DBURL:     os.Getenv("MIGRATION_DB_URL"),
+        Schema:    "identity",
+        EmbedFS:   migrations.SchemaFS,
+        EmbedRoot: "schema",
     }
     if err := migrator.Run(context.Background(), cfg, os.Args[1:]); err != nil {
         log.Fatal(err)
