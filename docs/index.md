@@ -10,7 +10,7 @@ primitives so each service can stay thin and consistent.
 | ------------- | --------------------------------------------------------------------- |
 | `migrator`    | golang-migrate wrapper + cobra CLI; per-service schema migrations     |
 | `log`         | slog-based structured logging; context-aware helpers                  |
-| `obs`         | OpenTelemetry SDK setup (OTLP exporter + Prometheus registration)     |
+| `obs`         | OpenTelemetry SDK setup (OTLP/HTTP exporter; no Prometheus endpoint)  |
 | `auth`        | JWT + API-key HTTP middleware backed by identity gRPC                 |
 | `errors`      | Sentinel errors + gRPC/HTTP status mapping                            |
 | `config`      | Env-only config loader (`MustBind[T]`)                                |
@@ -38,7 +38,7 @@ Every backend service pins a released SDK version:
 
 ## Package map
 
-```
+```text
 github.com/paper-board/sdk
 ├── migrator/        ← schema migration CLI (ADR-0004)
 ├── log/             ← structured logging

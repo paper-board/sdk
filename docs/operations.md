@@ -56,7 +56,7 @@ across up to seven service repos. Budget accordingly.
 
 Each service's `go.mod` pins an exact tag:
 
-```
+```text
 require github.com/paper-board/sdk v0.4.0
 ```
 

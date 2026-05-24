@@ -169,7 +169,7 @@ func SetupOTel(serviceName, version string) (Shutdown, error)
 Initialises the OpenTelemetry SDK:
 
 - Trace exporter: OTLP/HTTP to `OTEL_EXPORTER_OTLP_ENDPOINT` (no-op if unset).
-- Metric exporter: OTLP/HTTP + Prometheus registry on `:9090/metrics`.
+- Metric exporter: OTLP/HTTP to `OTEL_EXPORTER_OTLP_ENDPOINT` (no Prometheus endpoint).
 - Sets global `TracerProvider` and `MeterProvider`.
 
 Call `defer shutdown(ctx)` in `main` to flush pending telemetry before exit.
