@@ -1,0 +1,4 @@
+# Default owner for everything not matched below
+* @paper-board/sdk-maintainers
+
+/docs/ @paper-board/sdk-maintainers @paper-board/docs-maintainers
