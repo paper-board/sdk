@@ -5,7 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v0.4.0] — 2026-05-16
+## [0.4.0](https://github.com/paper-board/sdk/compare/v0.3.0...v0.4.0) (2026-05-24)
+
+> Code released 2026-05-16; release-please metadata + GitHub Release published 2026-05-24.
+
+### Features
+
+- **sdk:** v0.4.0 — healthcheck + idempotency + advisory drop ([#7](https://github.com/paper-board/sdk/issues/7)) ([a8e2cb6](https://github.com/paper-board/sdk/commit/a8e2cb60391a278ab5c35c865c1fc0da460a94ca))
 
 ### Added
 
@@ -55,10 +61,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.0](https://github.com/paper-board/sdk/compare/v0.2.0...v0.3.0) (2026-05-13)
 
-
 ### Features
 
-* **auth:** sdk/auth package (Phase 2) ([#1](https://github.com/paper-board/sdk/issues/1)) ([ca05f5a](https://github.com/paper-board/sdk/commit/ca05f5aa74f5ae83295b8637f4f65337d269ba25))
+- **auth:** sdk/auth package (Phase 2) ([#1](https://github.com/paper-board/sdk/issues/1)) ([ca05f5a](https://github.com/paper-board/sdk/commit/ca05f5aa74f5ae83295b8637f4f65337d269ba25))
   - `auth/` package: per-route middleware `Require(modes...)` / `RequireRole(roles...)` decorators
     backed by identity gRPC AuthService. Format-detects `pbk_(live|test)_*` (APIKey path) vs JWT
     (RS256). Includes `Keystore` with 5 min TTL cache + `Refresh(kid)`. Mock client under
@@ -86,8 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `AuthStub(orgID)` — Phase 1.x bridge stamping a fixed org_id; identity
     Phase 2 swaps for real Auth.
   - `HandleErr(w, r, svc, err)` — central HTTP error boundary. Maps via
-    `errors.ToHTTPStatus`; emits `{error:{code:"<svc>.<short>", message,
-    details?}}` with sentinel-only message (wrapped chain stays in logs).
+    `errors.ToHTTPStatus`; emits `{error:{code:"<svc>.<short>", message, details?}}` with sentinel-only message (wrapped chain stays in logs).
     `validator.ValidationErrors` surfaces under `details` with HTTP 400.
   - `WriteError(w, status, code, message)` — minimal envelope writer.
 - `testfixture` package — Postgres test infra:
@@ -115,7 +119,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `TraceIDFromContext`, `OrgFromContext`, `UserFromContext`,
   `RolesFromContext` getters.
 - `errors.Kind(err) string` + `errors.Message(err) string` — sentinel slug
-  + canonical user-facing message; used by httpmw + log.
+  - canonical user-facing message; used by httpmw + log.
 
 ### Changed
 
