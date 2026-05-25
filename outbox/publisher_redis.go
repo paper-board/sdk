@@ -31,7 +31,7 @@ func newPublisherImpl(pool *pgxpool.Pool, cfg Config) (*publisherImpl, error) {
 		cfg:    cfg,
 		store:  &pgStore{pool: pool, schema: cfg.Schema},
 		redis:  rdb,
-		stopCh: make(chan struct{}),
+		stopCh: make(chan struct{}, 1),
 	}, nil
 }
 
@@ -89,6 +89,16 @@ func (p *publisherImpl) drain(ctx context.Context) {
 					"event_id", row.eventID,
 					"event_type", row.eventType,
 					"error", marshalErr)
+				if markErr := p.store.markFailedTx(ctx, tx, row.eventID, marshalErr.Error()); markErr != nil {
+					p.cfg.Logger.Error("outbox mark-failed (marshal) error", "event_id", row.eventID, "error", markErr)
+				}
+				promoted, promErr := p.store.promoteDeadLetterTx(ctx, tx, row.eventID, p.cfg.MaxAttempts)
+				if promErr != nil {
+					p.cfg.Logger.Error("outbox dead-letter (marshal) promotion error", "event_id", row.eventID, "error", promErr)
+				}
+				if promoted {
+					deadPromoted++
+				}
 				continue
 			}
 

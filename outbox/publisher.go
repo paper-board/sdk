@@ -82,8 +82,6 @@ type Config struct {
 	FlushTimeout time.Duration
 	// Logger is injected; uses slog.Default() if nil.
 	Logger *slog.Logger
-	// now is injectable for testing clock-dependent cleanup.
-	now func() time.Time
 }
 
 func (c *Config) applyDefaults() {
@@ -113,9 +111,6 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Logger == nil {
 		c.Logger = slog.Default()
-	}
-	if c.now == nil {
-		c.now = time.Now
 	}
 }
 
