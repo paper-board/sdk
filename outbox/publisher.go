@@ -116,6 +116,9 @@ func (c *Config) applyDefaults() {
 
 // NewPublisher creates a Publisher backed by the given pool and config.
 func NewPublisher(pool *pgxpool.Pool, cfg Config) (Publisher, error) {
+	if pool == nil {
+		return nil, errorf("outbox: pool is required")
+	}
 	cfg.applyDefaults()
 	if err := validateConfig(cfg); err != nil {
 		return nil, err

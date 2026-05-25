@@ -26,13 +26,13 @@ type Inbox interface {
 }
 
 // New returns an Inbox backed by the given pool for the named schema.
-// Panics on nil pool or invalid schema identifier.
+// Panics on invalid schema identifier or nil pool.
 func New(pool *pgxpool.Pool, schema string) Inbox {
-	if pool == nil {
-		panic("inbox: nil pgx pool")
-	}
 	if err := validateSchemaIdent(schema); err != nil {
 		panic(err)
+	}
+	if pool == nil {
+		panic("inbox: nil pgx pool")
 	}
 	return &pgInbox{store: &pgInboxStore{pool: pool, schema: schema}}
 }

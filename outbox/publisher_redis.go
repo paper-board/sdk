@@ -71,6 +71,12 @@ func (p *publisherImpl) Start(ctx context.Context) error {
 }
 
 func (p *publisherImpl) Stop(ctx context.Context) error {
+	p.mu.Lock()
+	started := p.started
+	p.mu.Unlock()
+	if !started {
+		return nil
+	}
 	select {
 	case p.stopCh <- struct{}{}:
 	default:
