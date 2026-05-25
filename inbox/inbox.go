@@ -26,13 +26,24 @@ type Inbox interface {
 }
 
 // New returns an Inbox backed by the given pool for the named schema.
+// Panics on nil pool or invalid schema identifier.
 func New(pool *pgxpool.Pool, schema string) Inbox {
+	if pool == nil {
+		panic("inbox: nil pgx pool")
+	}
+	if err := validateSchemaIdent(schema); err != nil {
+		panic(err)
+	}
 	return &pgInbox{store: &pgInboxStore{pool: pool, schema: schema}}
 }
 
 // NewMigrationHelper returns an idempotent function that creates the
 // processed_events table in the given schema.
+// Panics on invalid schema identifier.
 func NewMigrationHelper(schema string) func(ctx context.Context, pool *pgxpool.Pool) error {
+	if err := validateSchemaIdent(schema); err != nil {
+		panic(err)
+	}
 	return newMigrationHelper(schema)
 }
 

@@ -3,14 +3,27 @@ package outbox
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+var schemaIdentRE = regexp.MustCompile(`^[a-z_][a-z0-9_]*$`)
+
+func validateSchemaIdent(schema string) error {
+	if !schemaIdentRE.MatchString(schema) {
+		return fmt.Errorf("outbox: invalid schema identifier %q", schema)
+	}
+	return nil
+}
 
 // NewMigrationHelper returns an idempotent function that creates the
 // outbox_events table in the given schema. Safe to call multiple times
 // (all DDL uses IF NOT EXISTS guards).
 func NewMigrationHelper(schema string) func(ctx context.Context, pool *pgxpool.Pool) error {
+	if err := validateSchemaIdent(schema); err != nil {
+		panic(err)
+	}
 	return func(ctx context.Context, pool *pgxpool.Pool) error {
 		ddl := fmt.Sprintf(`
 CREATE TABLE IF NOT EXISTS %s.outbox_events (

@@ -4,6 +4,7 @@ package outbox_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -192,8 +193,12 @@ func TestTxCommitRedisPublishOrdering(t *testing.T) {
 		for _, msg := range msgs {
 			if data, ok := msg.Values["data"]; ok {
 				if s, ok := data.(string); ok && len(s) > 0 {
-					found = true
-					_ = s
+					var env struct {
+						EventID string `json:"event_id"`
+					}
+					if err := json.Unmarshal([]byte(s), &env); err == nil && env.EventID == eventID.String() {
+						found = true
+					}
 				}
 			}
 		}

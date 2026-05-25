@@ -116,10 +116,10 @@ func (c *Config) applyDefaults() {
 
 // NewPublisher creates a Publisher backed by the given pool and config.
 func NewPublisher(pool *pgxpool.Pool, cfg Config) (Publisher, error) {
+	cfg.applyDefaults()
 	if err := validateConfig(cfg); err != nil {
 		return nil, err
 	}
-	cfg.applyDefaults()
 	return newPublisherImpl(pool, cfg)
 }
 
@@ -133,6 +133,17 @@ func validateConfig(cfg Config) error {
 		return errorf("outbox: Stream is required")
 	case cfg.RedisAddr == "":
 		return errorf("outbox: RedisAddr is required")
+	case cfg.DrainInterval < 0:
+		return errorf("outbox: DrainInterval must be >= 0")
+	case cfg.CleanupInterval < 0:
+		return errorf("outbox: CleanupInterval must be >= 0")
+	case cfg.DrainBatchSize < 0:
+		return errorf("outbox: DrainBatchSize must be >= 0")
+	case cfg.MaxAttempts < 0:
+		return errorf("outbox: MaxAttempts must be >= 0")
+	}
+	if err := validateSchemaIdent(cfg.Schema); err != nil {
+		return err
 	}
 	if len(cfg.BackoffSchedule) > 0 && cfg.MaxAttempts > 0 && len(cfg.BackoffSchedule) != cfg.MaxAttempts {
 		return errorf("outbox: BackoffSchedule length (%d) must equal MaxAttempts (%d)", len(cfg.BackoffSchedule), cfg.MaxAttempts)

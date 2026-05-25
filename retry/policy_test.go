@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -133,10 +134,8 @@ func TestDo_contextCancellation(t *testing.T) {
 
 func TestWithTarget(t *testing.T) {
 	ctx := retry.WithTarget(context.Background(), "test.service")
-	var loggedTarget string
-	logger := slog.New(slog.NewTextHandler(&targetCapturer{fn: func(target string) {
-		loggedTarget = target
-	}}, nil))
+	var buf strings.Builder
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
 	p := retry.Policy{
 		MaxAttempts: 1,
 		BaseDelay:   1 * time.Millisecond,
@@ -148,7 +147,9 @@ func TestWithTarget(t *testing.T) {
 	_ = retry.Do(ctx, p, func(_ context.Context) error {
 		return grpcErr(codes.NotFound)
 	})
-	_ = loggedTarget
+	if !strings.Contains(buf.String(), "test.service") {
+		t.Errorf("expected log output to contain target 'test.service', got: %s", buf.String())
+	}
 }
 
 func TestJitterDistribution(t *testing.T) {
@@ -202,15 +203,6 @@ func TestJitterDistribution(t *testing.T) {
 	if calls != 1 {
 		t.Fatalf("ClassificationUnknown should not retry, got %d calls", calls)
 	}
-}
-
-// targetCapturer is a minimal io.Writer that captures log output.
-type targetCapturer struct {
-	fn func(string)
-}
-
-func (tc *targetCapturer) Write(p []byte) (int, error) {
-	return len(p), nil
 }
 
 // Verify DefaultPolicy is exported and has expected values.

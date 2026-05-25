@@ -3,9 +3,19 @@ package inbox
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+var schemaIdentRE = regexp.MustCompile(`^[a-z_][a-z0-9_]*$`)
+
+func validateSchemaIdent(schema string) error {
+	if !schemaIdentRE.MatchString(schema) {
+		return fmt.Errorf("inbox: invalid schema identifier %q", schema)
+	}
+	return nil
+}
 
 func newMigrationHelper(schema string) func(ctx context.Context, pool *pgxpool.Pool) error {
 	return func(ctx context.Context, pool *pgxpool.Pool) error {

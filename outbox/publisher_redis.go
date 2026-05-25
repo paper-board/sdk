@@ -18,6 +18,7 @@ type publisherImpl struct {
 	store   *pgStore
 	redis   *redis.Client
 	stopCh  chan struct{}
+	doneCh  chan struct{}
 	mu      sync.Mutex
 	started bool
 }
@@ -32,6 +33,7 @@ func newPublisherImpl(pool *pgxpool.Pool, cfg Config) (*publisherImpl, error) {
 		store:  &pgStore{pool: pool, schema: cfg.Schema},
 		redis:  rdb,
 		stopCh: make(chan struct{}, 1),
+		doneCh: make(chan struct{}),
 	}, nil
 }
 
@@ -52,6 +54,7 @@ func (p *publisherImpl) Start(ctx context.Context) error {
 	cleanupTicker := time.NewTicker(p.cfg.CleanupInterval)
 	defer drainTicker.Stop()
 	defer cleanupTicker.Stop()
+	defer close(p.doneCh)
 
 	for {
 		select {
@@ -67,12 +70,19 @@ func (p *publisherImpl) Start(ctx context.Context) error {
 	}
 }
 
-func (p *publisherImpl) Stop(_ context.Context) error {
+func (p *publisherImpl) Stop(ctx context.Context) error {
 	select {
 	case p.stopCh <- struct{}{}:
 	default:
 	}
-	return nil
+	flushCtx, cancel := context.WithTimeout(ctx, p.cfg.FlushTimeout)
+	defer cancel()
+	select {
+	case <-p.doneCh:
+		return nil
+	case <-flushCtx.Done():
+		return flushCtx.Err()
+	}
 }
 
 func (p *publisherImpl) drain(ctx context.Context) {
@@ -91,10 +101,12 @@ func (p *publisherImpl) drain(ctx context.Context) {
 					"error", marshalErr)
 				if markErr := p.store.markFailedTx(ctx, tx, row.eventID, marshalErr.Error()); markErr != nil {
 					p.cfg.Logger.Error("outbox mark-failed (marshal) error", "event_id", row.eventID, "error", markErr)
+					return markErr
 				}
 				promoted, promErr := p.store.promoteDeadLetterTx(ctx, tx, row.eventID, p.cfg.MaxAttempts)
 				if promErr != nil {
 					p.cfg.Logger.Error("outbox dead-letter (marshal) promotion error", "event_id", row.eventID, "error", promErr)
+					return promErr
 				}
 				if promoted {
 					deadPromoted++
@@ -117,11 +129,13 @@ func (p *publisherImpl) drain(ctx context.Context) {
 
 				if markErr := p.store.markFailedTx(ctx, tx, row.eventID, xaddErr.Error()); markErr != nil {
 					p.cfg.Logger.Error("outbox mark-failed error", "event_id", row.eventID, "error", markErr)
+					return markErr
 				}
 
 				promoted, promErr := p.store.promoteDeadLetterTx(ctx, tx, row.eventID, p.cfg.MaxAttempts)
 				if promErr != nil {
 					p.cfg.Logger.Error("outbox dead-letter promotion error", "event_id", row.eventID, "error", promErr)
+					return promErr
 				}
 				if promoted {
 					deadPromoted++
@@ -137,6 +151,7 @@ func (p *publisherImpl) drain(ctx context.Context) {
 
 			if markErr := p.store.markDeliveredTx(ctx, tx, row.eventID); markErr != nil {
 				p.cfg.Logger.Error("outbox mark-delivered error", "event_id", row.eventID, "error", markErr)
+				return markErr
 			}
 			delivered++
 		}
