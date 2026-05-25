@@ -22,3 +22,6 @@ func Is(err, target error) bool { return errors.Is(err, target) }
 
 // As re-exports errors.As.
 func As(err error, target any) bool { return errors.As(err, target) }
+
+// Unwrap re-exports errors.Unwrap.
+func Unwrap(err error) error { return errors.Unwrap(err) }
