@@ -3,6 +3,7 @@ package outbox
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -60,10 +61,23 @@ func (s *pgStore) insertEvent(ctx context.Context, tx pgx.Tx, e Event, sourceSer
 	return nil
 }
 
+// backoffCaseExpr builds the CASE LEAST(attempts, N-1) ... END fragment from
+// the configured schedule so the DB uses the same intervals as Config.BackoffSchedule.
+func backoffCaseExpr(schedule []time.Duration) string {
+	var sb strings.Builder
+	sb.WriteString("CASE LEAST(attempts, ")
+	fmt.Fprintf(&sb, "%d)", len(schedule)-1)
+	for i, d := range schedule {
+		fmt.Fprintf(&sb, " WHEN %d THEN INTERVAL '%dms'", i, d.Milliseconds())
+	}
+	sb.WriteString(" END")
+	return sb.String()
+}
+
 // fetchAndProcess claims a batch of pending rows in a transaction, calls
 // processFn for each, and commits or rolls back. processFn must not hold
 // the transaction after returning.
-func (s *pgStore) fetchAndProcess(ctx context.Context, batchSize int, processFn func(tx pgx.Tx, rows []pendingRow) error) error {
+func (s *pgStore) fetchAndProcess(ctx context.Context, batchSize int, schedule []time.Duration, processFn func(tx pgx.Tx, rows []pendingRow) error) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("outbox begin tx: %w", err)
@@ -76,18 +90,11 @@ func (s *pgStore) fetchAndProcess(ctx context.Context, batchSize int, processFn 
 		  FROM %s.outbox_events
 		 WHERE status = 'pending'
 		   AND (last_attempt_at IS NULL
-		        OR last_attempt_at < NOW() - (
-		           CASE LEAST(attempts, 4)
-		             WHEN 0 THEN INTERVAL '0s'
-		             WHEN 1 THEN INTERVAL '1s'
-		             WHEN 2 THEN INTERVAL '2s'
-		             WHEN 3 THEN INTERVAL '4s'
-		             WHEN 4 THEN INTERVAL '8s'
-		           END))
+		        OR last_attempt_at < NOW() - (%s))
 		 ORDER BY occurred_at, event_id
 		 LIMIT $1
 		   FOR UPDATE SKIP LOCKED
-	`, s.schema)
+	`, s.schema, backoffCaseExpr(schedule))
 
 	pgxRows, err := tx.Query(ctx, q, batchSize)
 	if err != nil {

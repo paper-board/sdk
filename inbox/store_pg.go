@@ -31,15 +31,15 @@ func (s *pgInboxStore) exists(ctx context.Context, eventID uuid.UUID) (bool, err
 	return true, nil
 }
 
-func (s *pgInboxStore) mark(ctx context.Context, tx pgx.Tx, eventID uuid.UUID, eventType, subject string) error {
+func (s *pgInboxStore) tryMark(ctx context.Context, tx pgx.Tx, eventID uuid.UUID, eventType, subject string) (bool, error) {
 	q := fmt.Sprintf(`
 		INSERT INTO %s.processed_events (event_id, event_type, subject)
 		VALUES ($1, $2, $3)
 		ON CONFLICT (event_id) DO NOTHING
 	`, s.schema)
-	_, err := tx.Exec(ctx, q, eventID, eventType, subject)
+	tag, err := tx.Exec(ctx, q, eventID, eventType, subject)
 	if err != nil {
-		return fmt.Errorf("inbox mark: %w", err)
+		return false, fmt.Errorf("inbox trymark: %w", err)
 	}
-	return nil
+	return tag.RowsAffected() == 1, nil
 }

@@ -10,16 +10,14 @@
 //	helper := inbox.NewMigrationHelper("onboarding")
 //	if err := helper(ctx, pool); err != nil { ... }
 //
-//	inbox := inbox.New(pool, "onboarding")
+//	ib := inbox.New(pool, "onboarding")
 //
-//	// In the event handler:
-//	already, err := inbox.Exists(ctx, event.EventID)
-//	if err != nil { ... }
-//	if already { return nil } // deduplicated
-//
+//	// In the event handler — claim and apply atomically:
 //	tx, _ := pool.Begin(ctx)
-//	// ... apply business state ...
-//	if err := inbox.Mark(ctx, tx, event.EventID, event.EventType, event.OrgID); err != nil { ... }
+//	claimed, err := ib.TryMark(ctx, tx, event.EventID, event.EventType, event.OrgID)
+//	if err != nil { tx.Rollback(ctx); return err }
+//	if !claimed { tx.Rollback(ctx); return nil } // duplicate — skip
+//	// ... apply business state inside the same tx ...
 //	tx.Commit(ctx)
 //
 // # Retention

@@ -321,7 +321,7 @@ func TestCleanupPassDeliveredAndDead(t *testing.T) {
 	t.Fatal("cleanup did not delete delivered (>7d) and dead (>30d) rows within 2s")
 }
 
-// TestInboxDedupe verifies Mark + Exists + ON CONFLICT no-op.
+// TestInboxDedupe verifies TryMark atomicity: first call claims, second does not.
 func TestInboxDedupe(t *testing.T) {
 	ctx := context.Background()
 	require(t, inbox.NewMigrationHelper("test_svc")(ctx, testHarness.pool))
@@ -333,29 +333,37 @@ func TestInboxDedupe(t *testing.T) {
 	exists, err := ib.Exists(ctx, eventID)
 	require(t, err)
 	if exists {
-		t.Fatal("should not exist before Mark")
+		t.Fatal("should not exist before TryMark")
 	}
 
-	// Mark.
+	// First TryMark — should claim the event.
 	tx, err := testHarness.pool.Begin(ctx)
 	require(t, err)
-	require(t, ib.Mark(ctx, tx, eventID, "test.event", "org-123"))
+	claimed, err := ib.TryMark(ctx, tx, eventID, "test.event", "org-123")
+	require(t, err)
 	require(t, tx.Commit(ctx))
+	if !claimed {
+		t.Fatal("first TryMark should return claimed=true")
+	}
 
 	// Should now exist.
 	exists, err = ib.Exists(ctx, eventID)
 	require(t, err)
 	if !exists {
-		t.Fatal("should exist after Mark")
+		t.Fatal("should exist after TryMark")
 	}
 
-	// Re-mark same event — ON CONFLICT DO NOTHING, no error.
+	// Second TryMark same event — ON CONFLICT DO NOTHING, claimed=false.
 	tx2, err := testHarness.pool.Begin(ctx)
 	require(t, err)
-	require(t, ib.Mark(ctx, tx2, eventID, "test.event", "org-123"))
+	claimed2, err := ib.TryMark(ctx, tx2, eventID, "test.event", "org-123")
+	require(t, err)
 	require(t, tx2.Commit(ctx))
+	if claimed2 {
+		t.Fatal("second TryMark should return claimed=false")
+	}
 
-	// Still exists, count is still 1.
+	// Count is still 1.
 	var count int
 	err = testHarness.pool.QueryRow(ctx,
 		`SELECT COUNT(*) FROM test_svc.processed_events WHERE event_id = $1`, eventID,

@@ -79,7 +79,7 @@ func (p *publisherImpl) drain(ctx context.Context) {
 	delivered := 0
 	deadPromoted := 0
 
-	err := p.store.fetchAndProcess(ctx, p.cfg.DrainBatchSize, func(tx pgx.Tx, rows []pendingRow) error {
+	err := p.store.fetchAndProcess(ctx, p.cfg.DrainBatchSize, p.cfg.BackoffSchedule, func(tx pgx.Tx, rows []pendingRow) error {
 		for _, row := range rows {
 			env := buildEnvelope(row, p.cfg.SourceService)
 			data, marshalErr := json.Marshal(env)

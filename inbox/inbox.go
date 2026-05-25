@@ -10,13 +10,19 @@ import (
 
 // Inbox tracks processed event IDs to prevent duplicate processing.
 type Inbox interface {
-	// Exists returns true if eventID has already been processed.
-	Exists(ctx context.Context, eventID uuid.UUID) (bool, error)
+	// TryMark atomically records that eventID was processed inside the caller's
+	// transaction. Returns claimed=true when this call inserted the row (i.e. the
+	// event had not been processed before). Returns claimed=false when another
+	// handler already processed the same event (ON CONFLICT DO NOTHING path).
+	//
+	// Callers MUST skip business-state mutations when claimed=false to prevent
+	// duplicate side effects under concurrent delivery.
+	TryMark(ctx context.Context, tx pgx.Tx, eventID uuid.UUID, eventType, subject string) (claimed bool, err error)
 
-	// Mark records that eventID was processed.
-	// Idempotent: re-marking the same id is a no-op (uses ON CONFLICT DO NOTHING).
-	// Caller passes their own tx so the mark + business state mutation are atomic.
-	Mark(ctx context.Context, tx pgx.Tx, eventID uuid.UUID, eventType, subject string) error
+	// Exists returns true if eventID has already been processed.
+	// Non-transactional read for observability/monitoring; use TryMark for
+	// deduplication inside a handler transaction.
+	Exists(ctx context.Context, eventID uuid.UUID) (bool, error)
 }
 
 // New returns an Inbox backed by the given pool for the named schema.
@@ -34,10 +40,10 @@ type pgInbox struct {
 	store *pgInboxStore
 }
 
-func (i *pgInbox) Exists(ctx context.Context, eventID uuid.UUID) (bool, error) {
-	return i.store.exists(ctx, eventID)
+func (i *pgInbox) TryMark(ctx context.Context, tx pgx.Tx, eventID uuid.UUID, eventType, subject string) (bool, error) {
+	return i.store.tryMark(ctx, tx, eventID, eventType, subject)
 }
 
-func (i *pgInbox) Mark(ctx context.Context, tx pgx.Tx, eventID uuid.UUID, eventType, subject string) error {
-	return i.store.mark(ctx, tx, eventID, eventType, subject)
+func (i *pgInbox) Exists(ctx context.Context, eventID uuid.UUID) (bool, error) {
+	return i.store.exists(ctx, eventID)
 }
